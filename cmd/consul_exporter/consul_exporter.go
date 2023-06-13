@@ -53,10 +53,12 @@ func main() {
 		healthSummary = kingpin.Flag("consul.health-summary", "Generate a health summary for each service instance. Needs n+1 queries to collect all information.").Default("true").Bool()
 		kvPrefix      = kingpin.Flag("kv.prefix", "Prefix from which to expose key/value pairs.").Default("").String()
 		kvFilter      = kingpin.Flag("kv.filter", "Regex that determines which keys to expose.").Default(".*").String()
+		tagFilter     = kingpin.Flag("tag.filter", "Regex that determines which tags to expose (AND-filter).").Default(".*").Strings()
 
 		opts         = exporter.ConsulOpts{}
 		queryOptions = consul_api.QueryOptions{}
 	)
+
 	kingpin.Flag("consul.server", "HTTP API address of a Consul server or agent. (prefix with https:// to connect over HTTPS)").Default("http://localhost:8500").StringVar(&opts.URI)
 	kingpin.Flag("consul.ca-file", "File path to a PEM-encoded certificate authority used to validate the authenticity of a server certificate.").Default("").StringVar(&opts.CAFile)
 	kingpin.Flag("consul.cert-file", "File path to a PEM-encoded certificate used with the private key to verify the exporter's authenticity.").Default("").StringVar(&opts.CertFile)
@@ -80,7 +82,7 @@ func main() {
 	level.Info(logger).Log("msg", "Starting consul_exporter", "version", version.Info())
 	level.Info(logger).Log("build_context", version.BuildContext())
 
-	exporter, err := exporter.New(opts, queryOptions, *kvPrefix, *kvFilter, *healthSummary, logger)
+	exporter, err := exporter.New(opts, queryOptions, *kvPrefix, *kvFilter, *tagFilter, *healthSummary, logger)
 	if err != nil {
 		level.Error(logger).Log("msg", "Error creating the exporter", "err", err)
 		os.Exit(1)
