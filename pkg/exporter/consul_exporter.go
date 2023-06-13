@@ -110,7 +110,7 @@ type Exporter struct {
 	queryOptions     consul_api.QueryOptions
 	kvPrefix         string
 	kvFilter         *regexp.Regexp
-	tagFilters       map[string]*regexp.Regexp
+	nodeFilters      []*regexp.Regexp
 	healthSummary    bool
 	logger           log.Logger
 	requestLimitChan chan struct{}
@@ -133,7 +133,7 @@ func New(
 	opts ConsulOpts,
 	queryOptions consul_api.QueryOptions,
 	kvPrefix, kvFilter string,
-	tagFilters []string,
+	nodeFilters []string,
 	healthSummary bool,
 	logger log.Logger,
 ) (*Exporter, error) {
@@ -181,14 +181,10 @@ func New(
 		requestLimitChan = make(chan struct{}, opts.RequestLimit)
 	}
 
-	filters := make(map[string]*regexp.Regexp, 0)
+	filters := make([]*regexp.Regexp, 0)
 
-	for _, tagFilter := range tagFilters {
-		chunks := strings.SplitN(tagFilter, "=", 2)
-
-		if len(chunks) == 2 {
-			filters[chunks[0]] = regexp.MustCompile(chunks[1])
-		}
+	for _, nodeFilter := range nodeFilters {
+		filters = append(filters, regexp.MustCompile(nodeFilter))
 	}
 
 	// Init our exporter.
@@ -197,7 +193,7 @@ func New(
 		queryOptions:     queryOptions,
 		kvPrefix:         kvPrefix,
 		kvFilter:         regexp.MustCompile(kvFilter),
-		tagFilters:       filters,
+		nodeFilters:      filters,
 		healthSummary:    healthSummary,
 		logger:           logger,
 		requestLimitChan: requestLimitChan,
@@ -341,6 +337,26 @@ func (e *Exporter) collectHealthStateMetric(ch chan<- prometheus.Metric) bool {
 		return false
 	}
 	for _, hc := range checks {
+		found := false
+
+		// If we have any tags
+		if len(e.nodeFilters) > 0 {
+			for _, nodeFilter := range e.nodeFilters {
+				found = nodeFilter.Match([]byte(hc.Node))
+
+				if found {
+					break
+				}
+			}
+		} else {
+			// If no node filters were specified, don't filter anything
+			found = true
+		}
+
+		if !found {
+			continue
+		}
+
 		var passing, warning, critical, maintenance float64
 
 		switch hc.Status {
@@ -429,28 +445,20 @@ func (e *Exporter) collectOneHealthSummary(ch chan<- prometheus.Metric, serviceN
 	}
 
 	for _, entry := range service {
-		// Collect the services tags
-		serviceTags := entry.Service.Tags
-		found := true
+		found := false
 
 		// If we have any tags
-		if len(serviceTags) > 0 {
-			// Iterate through the service tags, splitting by a '=' character
-			for _, tag := range serviceTags {
-				chunks := strings.SplitN(tag, "=", 2)
+		if len(e.nodeFilters) > 0 {
+			for _, nodeFilter := range e.nodeFilters {
+				found = nodeFilter.Match([]byte(entry.Node.Node))
 
-				if len(chunks) == 2 {
-					// If we successfully split the string then...
-					// Check if our tag filters have the chunks[0] index (the tags' key)
-					if regex, ok := e.tagFilters[chunks[0]]; ok {
-						// If we can't find the tag, by default we'll include it, but if we
-						// have a matching tag above and the regex does not match, it'll
-						// exclude the value from the results.
-
-						found = regex.Match([]byte(chunks[1]))
-					}
+				if found {
+					break
 				}
 			}
+		} else {
+			// If no node filters were specified, don't filter anything
+			found = true
 		}
 
 		if !found {
