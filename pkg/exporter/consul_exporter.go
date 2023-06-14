@@ -291,7 +291,28 @@ func (e *Exporter) collectMembersMetric(ch chan<- prometheus.Metric) bool {
 		level.Error(e.logger).Log("msg", "Failed to query member status", "err", err)
 		return false
 	}
+
 	for _, entry := range members {
+		found := false
+
+		// If we have any tags
+		if len(e.nodeFilters) > 0 {
+			for _, nodeFilter := range e.nodeFilters {
+				found = nodeFilter.Match([]byte(entry.Name))
+
+				if found {
+					break
+				}
+			}
+		} else {
+			// If no node filters were specified, don't filter anything
+			found = true
+		}
+
+		if !found {
+			continue
+		}
+
 		ch <- prometheus.MustNewConstMetric(
 			memberStatus, prometheus.GaugeValue, float64(entry.Status), entry.Name,
 		)
@@ -306,6 +327,26 @@ func (e *Exporter) collectMembersWanMetric(ch chan<- prometheus.Metric) bool {
 		return false
 	}
 	for _, entry := range members {
+		found := false
+
+		// If we have any tags
+		if len(e.nodeFilters) > 0 {
+			for _, nodeFilter := range e.nodeFilters {
+				found = nodeFilter.Match([]byte(entry.Name))
+
+				if found {
+					break
+				}
+			}
+		} else {
+			// If no node filters were specified, don't filter anything
+			found = true
+		}
+
+		if !found {
+			continue
+		}
+
 		ch <- prometheus.MustNewConstMetric(
 			memberWanStatus, prometheus.GaugeValue, float64(entry.Status), entry.Name, entry.Tags["dc"],
 		)

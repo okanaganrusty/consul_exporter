@@ -64,7 +64,7 @@ func main() {
 	kingpin.Flag("consul.cert-file", "File path to a PEM-encoded certificate used with the private key to verify the exporter's authenticity.").Default("").StringVar(&opts.CertFile)
 	kingpin.Flag("consul.key-file", "File path to a PEM-encoded private key used with the certificate to verify the exporter's authenticity.").Default("").StringVar(&opts.KeyFile)
 	kingpin.Flag("consul.server-name", "When provided, this overrides the hostname for the TLS certificate. It can be used to ensure that the certificate name matches the hostname we declare.").Default("").StringVar(&opts.ServerName)
-	kingpin.Flag("consul.timeout", "Timeout on HTTP requests to the Consul API.").Default("500ms").DurationVar(&opts.Timeout)
+	kingpin.Flag("consul.timeout", "Timeout on HTTP requests to the Consul API.").Default("1500ms").DurationVar(&opts.Timeout)
 	kingpin.Flag("consul.insecure", "Disable TLS host verification.").Default("false").BoolVar(&opts.Insecure)
 	kingpin.Flag("consul.request-limit", "Limit the maximum number of concurrent requests to consul, 0 means no limit.").Default("0").IntVar(&opts.RequestLimit)
 
